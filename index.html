@@ -445,14 +445,12 @@ async function logout() {
 // ---- App init ----
 async function onLogin(user) {
   currentUser = user;
-  showLoading(true);
   showAuth(false);
-  loadLocal(); // show cached data immediately
+  loadLocal();
   showApp(true);
   switchTab('monthly');
-  await loadFromSupabase(); // then fetch fresh data
-  switchTab('monthly');     // re-render with server data
   showLoading(false);
+  loadFromSupabase().then(() => switchTab('monthly')).catch(() => {});
 }
 
 sb.auth.onAuthStateChange(async (event, session) => {
