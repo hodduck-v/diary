@@ -182,6 +182,61 @@
   }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+  /* bulk photo import */
+  .bulk-modal-bg {
+    position: fixed; inset: 0; background: rgba(30,25,20,.45); display: none;
+    align-items: flex-end; justify-content: center; z-index: 60;
+  }
+  .bulk-modal-bg.show { display: flex; }
+  .bulk-sheet {
+    background: var(--bg); width: 100%; max-width: 430px; border-radius: 22px 22px 0 0;
+    padding: 18px 0 34px; max-height: 88vh; display: flex; flex-direction: column; animation: up .28s ease;
+  }
+  .bulk-head { padding: 0 18px 14px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+  .bulk-head h3 { margin: 0; font-size: 17px; }
+  .bulk-head .close-x { background: #f1ede4; border: none; width: 34px; height: 34px; border-radius: 50%; font-size: 16px; color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .bulk-scroll { flex: 1; overflow-y: auto; padding: 0 18px; }
+  .bulk-footer { padding: 14px 18px 0; flex-shrink: 0; border-top: 1px solid var(--line); }
+
+  .date-group { margin-bottom: 20px; }
+  .date-group-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .date-group-label { font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+  .date-group-label .has-rec { font-size: 11px; font-weight: 400; color: var(--muted); }
+  .date-group-add {
+    background: var(--accent-soft); color: var(--accent); border: none;
+    border-radius: 20px; padding: 5px 13px; font-size: 12px; font-weight: 600;
+    cursor: pointer; font-family: inherit;
+  }
+  .date-group-add.done { background: #e8f5e9; color: #388e3c; }
+  .date-group-add:active { transform: scale(.96); }
+
+  .photo-pick-strip {
+    display: flex; gap: 7px; overflow-x: auto; padding-bottom: 6px;
+    scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  }
+  .photo-pick-strip::-webkit-scrollbar { display: none; }
+  .pick-item {
+    flex: 0 0 90px; height: 90px; border-radius: 12px; overflow: hidden;
+    position: relative; border: 3px solid transparent; cursor: pointer;
+    transition: border-color .15s, transform .12s;
+  }
+  .pick-item.selected { border-color: var(--accent); }
+  .pick-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .pick-check {
+    position: absolute; top: 5px; right: 5px; width: 22px; height: 22px;
+    border-radius: 50%; background: rgba(216,90,48,.85); color: #fff;
+    font-size: 12px; display: none; align-items: center; justify-content: center;
+    font-weight: 700;
+  }
+  .pick-item.selected .pick-check { display: flex; }
+  .pick-item:active { transform: scale(.95); }
+
+  .bulk-empty { text-align: center; padding: 40px 20px; color: var(--muted); font-size: 14px; }
+  .bulk-progress { font-size: 13px; color: var(--muted); text-align: center; padding: 8px 0; }
+
   /* logout btn */
   #logoutBtn {
     background: none; border: 1px solid var(--line); border-radius: 20px;
@@ -238,6 +293,10 @@
 
     <!-- 소셜 로그인 버튼 -->
     <div id="authForm">
+      <div id="devLoginWrap" style="display:none;margin-bottom:12px">
+        <button class="btn" style="background:#e8f5e9;color:#2e7d32;border:1.5px solid #a5d6a7" onclick="devLogin()">🛠️ 개발자 로그인 (localhost 전용)</button>
+      </div>
+
       <div class="auth-error" id="authError"></div>
       <button class="btn social-btn" id="btnGoogle" onclick="loginWith('google')">
         <span class="social-icon">
@@ -308,6 +367,7 @@
       <div class="dow"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
       <div class="grid" id="mGrid"></div>
       <div style="height:14px"></div>
+      <button class="btn soft" style="margin-bottom:10px" onclick="openBulkImport()">📷 날짜별 사진 가져오기</button>
       <button class="btn" onclick="goRetro()">✨ 이 달 회고하기</button>
     </section>
 
@@ -339,6 +399,38 @@
 <div class="modal-bg" id="modalBg" onclick="if(event.target===this)closeModal()">
   <div class="modal" id="modalBody"></div>
 </div>
+
+<!-- Bulk Photo Import -->
+<div class="bulk-modal-bg" id="bulkBg" onclick="if(event.target===this)closeBulk()">
+  <div class="bulk-sheet">
+    <div class="bulk-head">
+      <div>
+        <h3>📷 날짜별 사진 가져오기</h3>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">사진을 선택하면 날짜별로 자동 정리돼요</div>
+      </div>
+      <button class="close-x" onclick="closeBulk()">✕</button>
+    </div>
+    <div class="bulk-scroll" id="bulkScroll">
+      <div class="bulk-empty" id="bulkEmpty">
+        <div style="font-size:36px;margin-bottom:12px">🖼️</div>
+        <div>아래 버튼으로 사진을 여러 장 선택해보세요</div>
+        <div style="margin-top:6px;font-size:12px">날짜 기준으로 자동으로 묶어드려요</div>
+      </div>
+      <div id="bulkGroups"></div>
+    </div>
+    <div class="bulk-footer">
+      <button class="btn accent" id="bulkSaveAllBtn" onclick="addAllBulkDays()" style="display:none;margin-bottom:10px">사진 등록</button>
+      <button class="btn" id="bulkSelectBtn" style="background:#f1ede4;color:var(--ink)" onclick="triggerBulkPick()">사진 선택하기</button>
+      <div id="bulkProgress" style="display:none;font-size:13px;color:var(--muted);text-align:center;padding:8px 0"></div>
+      <div style="font-size:12px;color:var(--muted);text-align:center;margin-top:8px;line-height:1.5">
+        한 장씩 여러 번 선택해도 날짜별로 모아줘요<br>
+        <span style="font-size:11px">Android: 첫 사진 길게 누르면 다중 선택 · Mac: Cmd+클릭</span>
+      </div>
+    </div>
+  </div>
+</div>
+<input type="file" id="bulkFileIn" multiple style="display:none" />
+
 <div class="toast" id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -828,8 +920,169 @@ function toast(msg) {
   clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('show'), 1800);
 }
 
+// ---- Dev login (localhost only) ----
+if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+  document.getElementById('devLoginWrap').style.display = '';
+}
+function devLogin() {
+  currentUser = { id: 'dev-user-local' };
+  loadLocal();
+  showAuth(false);
+  showApp(true);
+  switchTab('monthly');
+}
+
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+// ---- BULK PHOTO IMPORT ----
+let bulkGroups = {}; // { 'YYYY-MM-DD': [{ dataUrl, selected }] }
+let bulkAdded = {}; // { 'YYYY-MM-DD': true }
+
+function openBulkImport() {
+  bulkGroups = {};
+  bulkAdded = {};
+  document.getElementById('bulkEmpty').style.display = '';
+  document.getElementById('bulkGroups').innerHTML = '';
+  document.getElementById('bulkProgress').style.display = 'none';
+  document.getElementById('bulkSelectBtn').textContent = '사진 선택하기';
+  document.getElementById('bulkBg').classList.add('show');
+}
+
+function closeBulk() {
+  document.getElementById('bulkBg').classList.remove('show');
+}
+
+function triggerBulkPick() {
+  const inp = document.getElementById('bulkFileIn');
+  inp.onchange = onBulkFiles;
+  inp.value = '';
+  inp.click();
+}
+
+async function onBulkFiles(e) {
+  const files = Array.from(e.target.files);
+  if (!files.length) return;
+
+  const prog = document.getElementById('bulkProgress');
+  prog.style.display = '';
+  prog.textContent = `사진 분석 중... (0 / ${files.length})`;
+  document.getElementById('bulkSelectBtn').textContent = '분석 중...';
+  document.getElementById('bulkEmpty').style.display = 'none';
+
+  // Accumulate — don't reset existing groups
+  // Reset only "added" flags for new dates that appear in this batch
+
+  // Read all files and group by date
+  for (let i = 0; i < files.length; i++) {
+    prog.textContent = `사진 분석 중... (${i + 1} / ${files.length})`;
+    const file = files[i];
+    const dateKey = fileToDateKey(file);
+    const dataUrl = await readFileAsDataUrl(file);
+    if (!bulkGroups[dateKey]) bulkGroups[dateKey] = [];
+    // Skip duplicates (same data URL already in this group)
+    if (!bulkGroups[dateKey].some(p => p.dataUrl === dataUrl)) {
+      bulkGroups[dateKey].push({ dataUrl, selected: true });
+      delete bulkAdded[dateKey]; // re-enable "추가" button if new photos arrived
+    }
+  }
+
+  prog.style.display = 'none';
+  document.getElementById('bulkSelectBtn').textContent = '사진 더 추가하기';
+  renderBulkGroups();
+}
+
+function fileToDateKey(file) {
+  // Use lastModified as a proxy for photo taken date
+  const d = new Date(file.lastModified);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise(resolve => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.readAsDataURL(file);
+  });
+}
+
+function renderBulkGroups() {
+  const container = document.getElementById('bulkGroups');
+  const sortedKeys = Object.keys(bulkGroups).sort((a, b) => b.localeCompare(a));
+
+  if (!sortedKeys.length) {
+    container.innerHTML = '';
+    document.getElementById('bulkEmpty').style.display = '';
+    document.getElementById('bulkSaveAllBtn').style.display = 'none';
+    return;
+  }
+  document.getElementById('bulkEmpty').style.display = 'none';
+  const anyUnsaved = sortedKeys.some(k => !bulkAdded[k] && k <= todayStr);
+  document.getElementById('bulkSaveAllBtn').style.display = anyUnsaved ? '' : 'none';
+
+  container.innerHTML = sortedKeys.map(key => {
+    const [y, m, d] = key.split('-').map(Number);
+    const dow = ['일','월','화','수','목','금','토'][new Date(y, m-1, d).getDay()];
+    const label = `${m}월 ${d}일 ${dow}요일`;
+    const rec = db.days[key];
+    const hasRec = !!rec;
+    const existingCount = rec ? getPhotos(rec).length : 0;
+    const isDone = bulkAdded[key];
+    const isFuture = key > todayStr;
+    const photos = bulkGroups[key];
+    const selectedCount = photos.filter(p => p.selected).length;
+
+    const addBtnLabel = isDone ? `✓ 추가됨` : `${selectedCount}장 추가`;
+    const addBtnClass = isDone ? 'date-group-add done' : 'date-group-add';
+
+    return `<div class="date-group" id="dg-${key}">
+      <div class="date-group-head">
+        <div class="date-group-label">
+          ${label}
+          <span class="has-rec">(${photos.length}장${hasRec ? ` · 기존 ${existingCount}장` : ''}${isFuture ? ' · 미래' : ''})</span>
+        </div>
+      </div>
+      <div class="photo-pick-strip">
+        ${photos.map((p, i) => `
+          <div class="pick-item ${p.selected ? 'selected' : ''}" onclick="toggleBulkPhoto('${key}', ${i})">
+            <img src="${p.dataUrl}">
+            <div class="pick-check">✓</div>
+          </div>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleBulkPhoto(key, idx) {
+  if (bulkAdded[key]) return;
+  bulkGroups[key][idx].selected = !bulkGroups[key][idx].selected;
+  renderBulkGroups();
+}
+
+function addBulkDay(key) {
+  const photos = bulkGroups[key].filter(p => p.selected);
+  if (!photos.length) { toast('선택한 사진이 없어요'); return; }
+  if (key > todayStr) { toast('미래 날짜에는 추가할 수 없어요'); return; }
+
+  if (!db.days[key]) db.days[key] = { photos: [], coverIdx: 0, mood: null, emoji: '', grateful: '', keyscene: '' };
+  const existing = getPhotos(db.days[key]);
+  const newPhotos = photos.map(p => p.dataUrl).filter(url => !existing.includes(url));
+  db.days[key].photos = [...existing, ...newPhotos];
+  db.days[key].photo = null;
+
+  bulkAdded[key] = true;
+  save();
+  renderBulkGroups();
+  renderMonthly();
+  toast(`${key.slice(5).replace('-', '/')}에 사진 ${newPhotos.length}장 추가했어요 📷`);
+}
+
+function addAllBulkDays() {
+  const keys = Object.keys(bulkGroups).filter(k => !bulkAdded[k] && k <= todayStr);
+  if (!keys.length) { toast('추가할 사진이 없어요'); return; }
+  keys.forEach(key => addBulkDay(key));
+  toast(`${keys.length}일치 사진을 모두 추가했어요 🎉`);
 }
 </script>
 </body>
