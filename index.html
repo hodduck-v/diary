@@ -198,23 +198,15 @@
   .auth-logo { font-size: 36px; margin-bottom: 12px; }
   .auth-wrap h2 { font-size: 22px; margin: 0 0 4px; font-weight: 700; }
   .auth-wrap .auth-desc { color: var(--muted); font-size: 14px; margin-bottom: 24px; }
-  /* tab switcher */
-  .auth-tabs { display: flex; background: #eeeae1; border-radius: 12px; padding: 4px; margin-bottom: 24px; }
-  .auth-tab {
-    flex: 1; text-align: center; padding: 9px 0; border-radius: 9px; border: none; background: none;
-    font-family: inherit; font-size: 14px; font-weight: 600; color: var(--muted); cursor: pointer; transition: .15s;
-  }
-  .auth-tab.active { background: #fff; color: var(--ink); box-shadow: 0 2px 6px rgba(0,0,0,.08); }
-  .auth-field { margin-bottom: 12px; }
-  .auth-field label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px; }
   .auth-error { color: var(--accent); font-size: 13px; min-height: 18px; margin-bottom: 10px; }
-  /* email confirm screen */
-  .auth-confirm { text-align: center; padding: 12px 0; }
-  .auth-confirm .confirm-icon { font-size: 48px; margin-bottom: 16px; }
-  .auth-confirm h3 { font-size: 19px; margin: 0 0 8px; }
-  .auth-confirm p { color: var(--muted); font-size: 14px; line-height: 1.6; margin: 0 0 24px; }
-  .auth-confirm .confirm-email { font-weight: 700; color: var(--ink); }
-  .auth-back { background: none; border: none; color: var(--accent); font-family: inherit; font-size: 14px; cursor: pointer; margin-top: 8px; }
+  .social-btn {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    background: #fff; color: var(--ink); border: 1.5px solid var(--line);
+    margin-bottom: 12px; font-size: 15px;
+  }
+  .social-btn:active { transform: scale(.98); }
+  .social-icon { display: flex; align-items: center; }
+  .kakao-btn { background: #FEE500; border-color: #FEE500; color: #3C1E1E; }
 
   /* loading */
   #loadingScreen {
@@ -244,36 +236,21 @@
     <h2>인생 회고 다이어리</h2>
     <p class="auth-desc">하루하루를 기록하고, 한 달을 돌아보세요</p>
 
-    <!-- 탭 -->
-    <div class="auth-tabs" id="authTabs">
-      <button class="auth-tab active" id="tabLogin" onclick="setAuthMode('login')">로그인</button>
-      <button class="auth-tab" id="tabSignup" onclick="setAuthMode('signup')">회원가입</button>
-    </div>
-
-    <!-- 폼 -->
+    <!-- 소셜 로그인 버튼 -->
     <div id="authForm">
-      <div class="auth-field">
-        <label>이메일</label>
-        <input type="email" id="authEmail" placeholder="hello@example.com" />
-      </div>
-      <div class="auth-field">
-        <label>비밀번호</label>
-        <input type="password" id="authPassword" placeholder="6자 이상" />
-      </div>
       <div class="auth-error" id="authError"></div>
-      <button class="btn accent" id="authBtn" onclick="submitAuth()">로그인</button>
-    </div>
-
-    <!-- 회원가입 완료 안내 -->
-    <div id="authConfirm" class="auth-confirm" style="display:none">
-      <div class="confirm-icon">📬</div>
-      <h3>메일함을 확인해주세요</h3>
-      <p>
-        <span class="confirm-email" id="confirmEmailText"></span>으로<br>
-        인증 메일을 보냈어요.<br>
-        메일의 링크를 클릭하면 바로 시작할 수 있어요.
-      </p>
-      <button class="btn" style="background:#f1ede4;color:var(--muted)" onclick="setAuthMode('login')">로그인 화면으로</button>
+      <button class="btn social-btn" id="btnGoogle" onclick="loginWith('google')">
+        <span class="social-icon">
+          <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+        </span>
+        Google로 계속하기
+      </button>
+      <button class="btn social-btn kakao-btn" id="btnKakao" onclick="loginWith('kakao')">
+        <span class="social-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#3C1E1E" d="M12 3C6.477 3 2 6.477 2 10.8c0 2.7 1.6 5.08 4.04 6.54L5.2 20.4a.5.5 0 0 0 .7.56l4.3-2.86c.59.08 1.19.12 1.8.12 5.523 0 10-3.477 10-7.8C22 6.477 17.523 3 12 3z"/></svg>
+        </span>
+        카카오로 계속하기
+      </button>
     </div>
   </div>
 </div>
@@ -433,8 +410,6 @@ function save() {
 }
 
 // ---- Auth ----
-let authMode = 'login';
-
 function showLoading(show) {
   document.getElementById('loadingScreen').classList.toggle('hidden', !show);
 }
@@ -445,56 +420,19 @@ function showApp(show) {
   document.getElementById('app').style.visibility = show ? '' : 'hidden';
 }
 
-function setAuthMode(mode) {
-  authMode = mode;
-  const isLogin = mode === 'login';
-  document.getElementById('tabLogin').classList.toggle('active', isLogin);
-  document.getElementById('tabSignup').classList.toggle('active', !isLogin);
-  document.getElementById('authBtn').textContent = isLogin ? '로그인' : '회원가입';
-  document.getElementById('authError').textContent = '';
-  document.getElementById('authTabs').style.display = '';
-  document.getElementById('authForm').style.display = '';
-  document.getElementById('authConfirm').style.display = 'none';
-}
-
-async function submitAuth() {
-  const email = document.getElementById('authEmail').value.trim();
-  const password = document.getElementById('authPassword').value;
+async function loginWith(provider) {
   const errEl = document.getElementById('authError');
-  const btn = document.getElementById('authBtn');
-  if (!email || !password) { errEl.textContent = '이메일과 비밀번호를 입력해주세요.'; return; }
-  btn.disabled = true;
   errEl.textContent = '';
-  try {
-    if (authMode === 'login') {
-      const { error } = await sb.auth.signInWithPassword({ email, password });
-      if (error) errEl.textContent = translateAuthError(error.message);
-    } else {
-      const { error } = await sb.auth.signUp({
-        email, password,
-        options: { emailRedirectTo: 'https://hodduck-v.github.io/diary/' }
-      });
-      if (error) {
-        errEl.textContent = translateAuthError(error.message);
-      } else {
-        document.getElementById('confirmEmailText').textContent = email;
-        document.getElementById('authForm').style.display = 'none';
-        document.getElementById('authConfirm').style.display = '';
-        document.getElementById('authTabs').style.display = 'none';
-      }
-    }
-  } catch(e) {
-    errEl.textContent = '오류가 발생했어요. 다시 시도해주세요.';
+  document.getElementById('btn' + (provider === 'google' ? 'Google' : 'Kakao')).disabled = true;
+  const { error } = await sb.auth.signInWithOAuth({
+    provider,
+    options: { redirectTo: 'https://hodduck-v.github.io/diary/' }
+  });
+  if (error) {
+    errEl.textContent = '로그인 중 오류가 발생했어요. 다시 시도해주세요.';
+    document.getElementById('btnGoogle').disabled = false;
+    document.getElementById('btnKakao').disabled = false;
   }
-  btn.disabled = false;
-}
-
-function translateAuthError(msg) {
-  if (msg.includes('Invalid login credentials')) return '이메일 또는 비밀번호가 올바르지 않아요.';
-  if (msg.includes('Email not confirmed')) return '이메일 인증이 필요해요. 메일함을 확인해주세요.';
-  if (msg.includes('already registered')) return '이미 가입된 이메일이에요.';
-  if (msg.includes('Password should be')) return '비밀번호는 6자 이상이어야 해요.';
-  return msg;
 }
 
 async function logout() {
@@ -526,11 +464,6 @@ sb.auth.onAuthStateChange(async (event, session) => {
     showApp(false);
     showAuth(true);
   }
-});
-
-// Enter key on auth fields
-document.getElementById('authPassword').addEventListener('keydown', e => {
-  if (e.key === 'Enter') submitAuth();
 });
 
 // ---- Constants ----
