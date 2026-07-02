@@ -197,12 +197,24 @@
   .auth-wrap { width: 100%; max-width: 360px; }
   .auth-logo { font-size: 36px; margin-bottom: 12px; }
   .auth-wrap h2 { font-size: 22px; margin: 0 0 4px; font-weight: 700; }
-  .auth-wrap .auth-desc { color: var(--muted); font-size: 14px; margin-bottom: 32px; }
+  .auth-wrap .auth-desc { color: var(--muted); font-size: 14px; margin-bottom: 24px; }
+  /* tab switcher */
+  .auth-tabs { display: flex; background: #eeeae1; border-radius: 12px; padding: 4px; margin-bottom: 24px; }
+  .auth-tab {
+    flex: 1; text-align: center; padding: 9px 0; border-radius: 9px; border: none; background: none;
+    font-family: inherit; font-size: 14px; font-weight: 600; color: var(--muted); cursor: pointer; transition: .15s;
+  }
+  .auth-tab.active { background: #fff; color: var(--ink); box-shadow: 0 2px 6px rgba(0,0,0,.08); }
   .auth-field { margin-bottom: 12px; }
   .auth-field label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px; }
   .auth-error { color: var(--accent); font-size: 13px; min-height: 18px; margin-bottom: 10px; }
-  .auth-toggle { text-align: center; font-size: 13px; color: var(--muted); margin-top: 18px; }
-  .auth-toggle button { background: none; border: none; color: var(--accent); font-family: inherit; font-size: 13px; cursor: pointer; font-weight: 600; }
+  /* email confirm screen */
+  .auth-confirm { text-align: center; padding: 12px 0; }
+  .auth-confirm .confirm-icon { font-size: 48px; margin-bottom: 16px; }
+  .auth-confirm h3 { font-size: 19px; margin: 0 0 8px; }
+  .auth-confirm p { color: var(--muted); font-size: 14px; line-height: 1.6; margin: 0 0 24px; }
+  .auth-confirm .confirm-email { font-weight: 700; color: var(--ink); }
+  .auth-back { background: none; border: none; color: var(--accent); font-family: inherit; font-size: 14px; cursor: pointer; margin-top: 8px; }
 
   /* loading */
   #loadingScreen {
@@ -231,19 +243,37 @@
     <div class="auth-logo">📖</div>
     <h2>인생 회고 다이어리</h2>
     <p class="auth-desc">하루하루를 기록하고, 한 달을 돌아보세요</p>
-    <div class="auth-field">
-      <label>이메일</label>
-      <input type="email" id="authEmail" placeholder="hello@example.com" />
+
+    <!-- 탭 -->
+    <div class="auth-tabs" id="authTabs">
+      <button class="auth-tab active" id="tabLogin" onclick="setAuthMode('login')">로그인</button>
+      <button class="auth-tab" id="tabSignup" onclick="setAuthMode('signup')">회원가입</button>
     </div>
-    <div class="auth-field">
-      <label>비밀번호</label>
-      <input type="password" id="authPassword" placeholder="6자 이상" />
+
+    <!-- 폼 -->
+    <div id="authForm">
+      <div class="auth-field">
+        <label>이메일</label>
+        <input type="email" id="authEmail" placeholder="hello@example.com" />
+      </div>
+      <div class="auth-field">
+        <label>비밀번호</label>
+        <input type="password" id="authPassword" placeholder="6자 이상" />
+      </div>
+      <div class="auth-error" id="authError"></div>
+      <button class="btn accent" id="authBtn" onclick="submitAuth()">로그인</button>
     </div>
-    <div class="auth-error" id="authError"></div>
-    <button class="btn accent" id="authBtn" onclick="submitAuth()">로그인</button>
-    <div class="auth-toggle">
-      <span id="authToggleText">계정이 없으신가요?</span>
-      <button onclick="toggleAuthMode()">회원가입</button>
+
+    <!-- 회원가입 완료 안내 -->
+    <div id="authConfirm" class="auth-confirm" style="display:none">
+      <div class="confirm-icon">📬</div>
+      <h3>메일함을 확인해주세요</h3>
+      <p>
+        <span class="confirm-email" id="confirmEmailText"></span>으로<br>
+        인증 메일을 보냈어요.<br>
+        메일의 링크를 클릭하면 바로 시작할 수 있어요.
+      </p>
+      <button class="btn" style="background:#f1ede4;color:var(--muted)" onclick="setAuthMode('login')">로그인 화면으로</button>
     </div>
   </div>
 </div>
@@ -415,13 +445,16 @@ function showApp(show) {
   document.getElementById('app').style.visibility = show ? '' : 'hidden';
 }
 
-function toggleAuthMode() {
-  authMode = authMode === 'login' ? 'signup' : 'login';
-  const isLogin = authMode === 'login';
+function setAuthMode(mode) {
+  authMode = mode;
+  const isLogin = mode === 'login';
+  document.getElementById('tabLogin').classList.toggle('active', isLogin);
+  document.getElementById('tabSignup').classList.toggle('active', !isLogin);
   document.getElementById('authBtn').textContent = isLogin ? '로그인' : '회원가입';
-  document.getElementById('authToggleText').textContent = isLogin ? '계정이 없으신가요?' : '이미 계정이 있으신가요?';
-  document.querySelector('.auth-toggle button').textContent = isLogin ? '회원가입' : '로그인';
   document.getElementById('authError').textContent = '';
+  document.getElementById('authTabs').style.display = '';
+  document.getElementById('authForm').style.display = '';
+  document.getElementById('authConfirm').style.display = 'none';
 }
 
 async function submitAuth() {
@@ -433,16 +466,23 @@ async function submitAuth() {
   btn.disabled = true;
   errEl.textContent = '';
   try {
-    let result;
     if (authMode === 'login') {
-      result = await sb.auth.signInWithPassword({ email, password });
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      if (error) errEl.textContent = translateAuthError(error.message);
     } else {
-      result = await sb.auth.signUp({ email, password });
+      const { error } = await sb.auth.signUp({
+        email, password,
+        options: { emailRedirectTo: 'https://hodduck-v.github.io/diary/' }
+      });
+      if (error) {
+        errEl.textContent = translateAuthError(error.message);
+      } else {
+        document.getElementById('confirmEmailText').textContent = email;
+        document.getElementById('authForm').style.display = 'none';
+        document.getElementById('authConfirm').style.display = '';
+        document.getElementById('authTabs').style.display = 'none';
+      }
     }
-    if (result.error) {
-      errEl.textContent = translateAuthError(result.error.message);
-    }
-    // onAuthStateChange handles the rest
   } catch(e) {
     errEl.textContent = '오류가 발생했어요. 다시 시도해주세요.';
   }
