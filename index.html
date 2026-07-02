@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>회고 — 인생 회고 다이어리</title>
+<style>
+  :root {
+    --bg: #f6f4ef;
+    --card: #ffffff;
+    --ink: #2b2926;
+    --muted: #8a857c;
+    --line: #e7e3da;
+    --accent: #d85a30;
+    --accent-soft: #faece7;
+    --warm: #ef9f27;
+    --warm-soft: #faeeda;
+    --shadow: 0 6px 24px rgba(60,50,40,.08);
+    --radius: 16px;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI", sans-serif;
+    background: #d9d4ca; color: var(--ink); display: flex; justify-content: center;
+  }
+  #app {
+    width: 100%; max-width: 430px; min-height: 100vh;
+    background: var(--bg); position: relative; display: flex; flex-direction: column; overflow: hidden;
+  }
+  header { padding: 20px 20px 12px; display: flex; align-items: baseline; justify-content: space-between; }
+  header h1 { font-size: 20px; margin: 0; font-weight: 700; letter-spacing: -.3px; }
+  header .sub { font-size: 13px; color: var(--muted); }
+  main { flex: 1; overflow-y: auto; padding: 0 16px 96px; }
+  .screen { display: none; }
+  .screen.active { display: block; animation: fade .25s ease; }
+  @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); margin-bottom: 14px; }
+  label.field-label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); margin: 0 0 8px; }
+  textarea, input[type=text] {
+    width: 100%; border: 1px solid var(--line); border-radius: 12px; padding: 11px 12px;
+    font-family: inherit; font-size: 15px; color: var(--ink); background: #fbfaf7; resize: none;
+  }
+  textarea:focus, input:focus { outline: none; border-color: var(--accent); background: #fff; }
+
+  .photo-slot {
+    aspect-ratio: 4/3; border-radius: 14px; overflow: hidden; margin-bottom: 14px;
+    background: var(--warm-soft); border: 1.5px dashed var(--warm);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+    color: #b07514; cursor: pointer; position: relative;
+  }
+  .photo-slot img { width: 100%; height: 100%; object-fit: cover; }
+  .photo-slot .hint { font-size: 13px; }
+  .photo-slot.filled { border: none; }
+
+  .btn {
+    display: block; width: 100%; text-align: center; border: none; cursor: pointer;
+    background: var(--ink); color: #fff; padding: 14px; border-radius: 14px;
+    font-size: 15px; font-weight: 600; font-family: inherit;
+  }
+  .btn.accent { background: var(--accent); }
+  .btn.soft { background: var(--accent-soft); color: var(--accent); }
+  .btn:active { transform: scale(.98); }
+
+  /* mood & emoji pickers */
+  .mood-row { display: flex; gap: 9px; flex-wrap: wrap; }
+  .mood-dot {
+    width: 32px; height: 32px; border-radius: 50%; cursor: pointer;
+    border: 3px solid transparent; display: flex; align-items: center; justify-content: center;
+    font-size: 14px; transition: transform .15s;
+  }
+  .mood-dot.active { border-color: var(--ink); transform: scale(1.1); }
+  .mood-dot:active { transform: scale(.92); }
+  .emoji-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; }
+  .emoji-pick {
+    background: none; border: 1.5px solid transparent; border-radius: 8px;
+    font-size: 20px; cursor: pointer; padding: 4px 2px; line-height: 1; transition: transform .12s;
+  }
+  .emoji-pick.active { background: var(--warm-soft); border-color: var(--warm); }
+  .emoji-pick:active { transform: scale(1.2); }
+
+  /* monthly */
+  .month-nav { display: flex; align-items: center; justify-content: space-between; margin: 4px 2px 14px; }
+  .month-nav button { background: none; border: none; font-size: 22px; color: var(--muted); cursor: pointer; padding: 4px 10px; }
+  .month-nav .title { font-size: 17px; font-weight: 700; }
+  .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+  .cell {
+    aspect-ratio: 1; border-radius: 8px; background: #eeeae1; overflow: hidden;
+    position: relative; cursor: pointer; border: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .cell img { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; }
+  .cell .num { position: absolute; top: 2px; left: 4px; font-size: 10px; color: var(--muted); font-weight: 600; z-index: 1; }
+  .cell.has-photo .num { color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.5); }
+  .cell.empty-rec { background: #f3f0e9; }
+  .cell.future { opacity: .35; }
+  .cell-emoji { font-size: 22px; line-height: 1; position: relative; z-index: 1; }
+  .dow { display: grid; grid-template-columns: repeat(7,1fr); gap: 5px; margin-bottom: 6px; }
+  .dow span { text-align: center; font-size: 11px; color: var(--muted); }
+
+  .stat-row { display: flex; gap: 8px; margin-bottom: 14px; }
+  .stat { flex: 1; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px; text-align: center; }
+  .stat .n { font-size: 22px; font-weight: 700; }
+  .stat .l { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  /* retro */
+  .retro-photos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 8px; }
+  .retro-photos .cell { border-radius: 10px; }
+  .matched-note { font-size: 12px; color: var(--muted); margin: 0 0 16px; display: flex; align-items: center; gap: 5px; }
+  .retro-field { border-bottom: 1px solid var(--line); padding: 14px 0; }
+  .retro-field:last-child { border-bottom: none; }
+  .retro-field .rl { font-size: 14px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 7px; }
+  .retro-field .emoji { font-size: 16px; }
+
+  /* bottom nav */
+  nav {
+    position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+    width: 100%; max-width: 430px; background: rgba(255,255,255,.92);
+    backdrop-filter: blur(12px); border-top: 1px solid var(--line);
+    display: flex; padding: 8px 0 22px;
+  }
+  nav button {
+    flex: 1; background: none; border: none; cursor: pointer; color: var(--muted);
+    display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11px; font-family: inherit;
+  }
+  nav button .ic { font-size: 21px; line-height: 1; }
+  nav button.on { color: var(--accent); }
+
+  .empty-msg { text-align: center; color: var(--muted); font-size: 14px; padding: 40px 20px; }
+
+  /* modal */
+  .modal-bg {
+    position: fixed; inset: 0; background: rgba(30,25,20,.45); display: none;
+    align-items: flex-end; justify-content: center; z-index: 50;
+  }
+  .modal-bg.show { display: flex; }
+  .modal {
+    background: var(--bg); width: 100%; max-width: 430px; border-radius: 22px 22px 0 0;
+    padding: 18px 18px 34px; max-height: 80vh; min-height: 60vh; overflow-y: auto; animation: up .28s ease;
+  }
+  @keyframes up { from { transform: translateY(100%); } to { transform: none; } }
+  .modal .grab { width: 40px; height: 4px; background: var(--line); border-radius: 3px; margin: 0 auto 14px; }
+  .modal h3 { margin: 0; font-size: 17px; }
+  .modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .modal-head .day-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .mnav { background: #f1ede4; border: none; width: 38px; height: 38px; border-radius: 50%; font-size: 22px; color: var(--muted); cursor: pointer; line-height: 1; display: flex; align-items: center; justify-content: center; }
+  .mnav:active { transform: scale(.92); }
+  .mnav:disabled { opacity: .3; cursor: default; }
+  .edit-btn { background: none; border: 1px solid var(--line); border-radius: 20px; padding: 5px 13px; font-size: 13px; color: var(--muted); cursor: pointer; font-family: inherit; margin-top: 6px; }
+  /* mood indicator (read mode) */
+  .mood-indicator { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .mood-pip { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid rgba(0,0,0,.1); }
+  /* photo multi */
+  .photo-cover-wrap { position: relative; margin-bottom: 10px; }
+  .photo-cover-wrap img { width: 100%; border-radius: 14px; display: block; }
+  .photo-edit-fab { position: absolute; bottom: 10px; right: 10px; background: rgba(0,0,0,.48); border: none; color: #fff; border-radius: 20px; padding: 6px 13px; font-size: 13px; cursor: pointer; font-family: inherit; }
+  .thumb-strip { display: flex; gap: 7px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 12px; scrollbar-width: none; }
+  .thumb-strip::-webkit-scrollbar { display: none; }
+  .thumb-item { flex: 0 0 58px; height: 58px; border-radius: 10px; overflow: hidden; position: relative; border: 2.5px solid transparent; cursor: pointer; }
+  .thumb-item.is-cover { border-color: var(--accent); }
+  .thumb-item img { width: 100%; height: 100%; object-fit: cover; }
+  .thumb-badge { position: absolute; bottom: 0; left: 0; right: 0; text-align: center; font-size: 9px; color: #fff; background: rgba(216,90,48,.82); padding: 2px 0; }
+  .photo-edit-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; margin-bottom: 13px; }
+  .photo-edit-item { position: relative; aspect-ratio: 1; }
+  .photo-edit-item img { width: 100%; height: 100%; object-fit: cover; border-radius: 12px; display: block; }
+  .pe-del { position: absolute; top: -7px; right: -7px; width: 24px; height: 24px; border-radius: 50%; background: #333; color: #fff; border: none; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 2; }
+  .pe-cover { position: absolute; bottom: 6px; right: 5px; background: rgba(0,0,0,.38); border: none; color: #fff; border-radius: 10px; padding: 3px 7px; font-size: 11px; cursor: pointer; }
+  .pe-cover.active { background: var(--accent); }
+  .photo-add-cell { aspect-ratio: 1; border-radius: 12px; background: var(--warm-soft); border: 1.5px dashed var(--warm); display: flex; align-items: center; justify-content: center; font-size: 30px; color: #b07514; cursor: pointer; }
+  .no-photo-slot { aspect-ratio: 4/3; border-radius: 14px; background: var(--warm-soft); border: 1.5px dashed var(--warm); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: #b07514; cursor: pointer; margin-bottom: 12px; font-size: 14px; }
+  .toast {
+    position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--ink); color: #fff; padding: 10px 20px; border-radius: 20px; font-size: 13px;
+    opacity: 0; transition: .3s; pointer-events: none; z-index: 60;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div>
+      <h1 id="hTitle">오늘</h1>
+      <div class="sub" id="hSub"></div>
+    </div>
+  </header>
+
+  <main>
+    <!-- TODAY -->
+    <section class="screen active" id="s-today">
+      <div class="photo-slot" id="todayPhoto" onclick="pickPhoto()">
+        <span style="font-size:26px">📷</span>
+        <span class="hint">오늘의 사진 한 장</span>
+      </div>
+      <input type="file" id="fileIn" accept="image/*" style="display:none" />
+
+      <div class="card" style="margin-bottom:12px">
+        <label class="field-label">🎨 기분 색상</label>
+        <div class="mood-row" id="todayMoodRow"></div>
+      </div>
+      <div class="card" style="margin-bottom:12px">
+        <label class="field-label">✨ 오늘의 이모지</label>
+        <div class="emoji-grid" id="todayEmojiGrid"></div>
+      </div>
+      <div class="card">
+        <label class="field-label">💛 오늘 감사한 일</label>
+        <textarea id="fGrateful" rows="2" placeholder="오늘 고마웠던 순간은?"></textarea>
+      </div>
+      <div class="card">
+        <label class="field-label">⭐ 오늘의 키씬</label>
+        <textarea id="fKeyscene" rows="2" placeholder="오늘 하루를 한 장면으로 남긴다면?"></textarea>
+      </div>
+      <button class="btn accent" onclick="saveToday()">기록 저장</button>
+    </section>
+
+    <!-- MONTHLY -->
+    <section class="screen" id="s-monthly">
+      <div class="month-nav">
+        <button onclick="shiftMonth(-1)">‹</button>
+        <span class="title" id="mTitle"></span>
+        <button onclick="shiftMonth(1)">›</button>
+      </div>
+      <div class="stat-row">
+        <div class="stat"><div class="n" id="mCount">0</div><div class="l">기록한 날</div></div>
+        <div class="stat"><div class="n" id="mPhotos">0</div><div class="l">사진</div></div>
+        <div class="stat"><div class="n" id="mLeft">0</div><div class="l">남은 날</div></div>
+      </div>
+      <div class="dow"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
+      <div class="grid" id="mGrid"></div>
+      <div style="height:14px"></div>
+      <button class="btn" onclick="goRetro()">✨ 이 달 회고하기</button>
+    </section>
+
+    <!-- RETRO -->
+    <section class="screen" id="s-retro">
+      <div class="retro-photos" id="retroPhotos"></div>
+      <p class="matched-note">🖼️ 갤러리에서 이 달의 사진을 자동으로 골랐어요</p>
+      <div class="card" style="padding:4px 16px">
+        <div class="retro-field"><div class="rl"><span class="emoji">🎯</span> 이달의 성취</div><textarea data-r="win" rows="2" placeholder="이번 달 해낸 것"></textarea></div>
+        <div class="retro-field"><div class="rl"><span class="emoji">🌱</span> 이달의 새로움</div><textarea data-r="new" rows="2" placeholder="처음 해본 것, 새로 만난 것"></textarea></div>
+        <div class="retro-field"><div class="rl"><span class="emoji">💡</span> 이달의 깨달음</div><textarea data-r="learn" rows="2" placeholder="배운 것, 알게 된 것"></textarea></div>
+        <div class="retro-field"><div class="rl"><span class="emoji">💜</span> 이달의 행복</div><textarea data-r="happy" rows="2" placeholder="가장 행복했던 순간"></textarea></div>
+        <div class="retro-field"><div class="rl"><span class="emoji">🤔</span> 이달의 아쉬움</div><textarea data-r="regret" rows="2" placeholder="아쉬웠던 것"></textarea></div>
+        <div class="retro-field"><div class="rl"><span class="emoji">➡️</span> 다음 달 목표</div><textarea data-r="next" rows="2" placeholder="다음 달엔 이걸"></textarea></div>
+      </div>
+      <button class="btn accent" onclick="saveRetro()">회고 저장</button>
+      <div style="height:10px"></div>
+      <button class="btn soft" onclick="switchTab('monthly')">먼슬리로 돌아가기</button>
+    </section>
+  </main>
+
+  <nav>
+    <button id="nav-today" class="on" onclick="switchTab('today')"><span class="ic">✍️</span>오늘</button>
+    <button id="nav-monthly" onclick="switchTab('monthly')"><span class="ic">🗓️</span>먼슬리</button>
+    <button id="nav-retro" onclick="switchTab('retro')"><span class="ic">✨</span>회고</button>
+  </nav>
+</div>
+
+<div class="modal-bg" id="modalBg" onclick="if(event.target===this)closeModal()">
+  <div class="modal" id="modalBody"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const KEY = 'life-retro-v1';
+
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch(e) { return this._mem?.[k] ?? null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch(e) { (this._mem ||= {})[k] = v; } },
+  _mem: null
+};
+
+const MOOD_COLORS = [
+  { c: '#ffd54f', name: '행복' },
+  { c: '#ffcc80', name: '따뜻함' },
+  { c: '#ef9a9a', name: '설렘' },
+  { c: '#f48fb1', name: '사랑' },
+  { c: '#80cbc4', name: '평온' },
+  { c: '#90caf9', name: '차분' },
+  { c: '#a5d6a7', name: '상쾌함' },
+  { c: '#ce93d8', name: '몽환' },
+  { c: '#b0bec5', name: '무덤덤' },
+  { c: '#bcaaa4', name: '피곤함' },
+];
+const EMOJIS = [
+  '☀️','🌙','🌧️','❄️','🌈','🌊','🔥','🌸',
+  '🍀','🌿','🌺','⭐','💫','🎉','🎵','🎨',
+  '😊','😢','😤','😌','🤔','💪','🙏','😴',
+  '☕','🍕','🍺','📚','✈️','🏃','❤️','🐈',
+];
+
+let db = load();
+let viewMonth = new Date(2026, 5, 1);
+const todayStr = '2026-07-02';
+
+function load() {
+  const raw = store.get(KEY);
+  if (raw) { try { return JSON.parse(raw); } catch(e) {} }
+  return seed();
+}
+function save() { store.set(KEY, JSON.stringify(db)); }
+
+function seed() {
+  const tints = ['#f0997b','#ef9f27','#85b7eb','#97c459','#ed93b1','#faece7'];
+  const svgPhoto = (c, label) =>
+    'data:image/svg+xml;utf8,' + encodeURIComponent(
+      `<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><rect width='120' height='120' fill='${c}'/><text x='60' y='68' font-size='40' text-anchor='middle'>${label}</text></svg>`);
+  const gr = ['맑은 하늘','따뜻한 커피','친구의 연락','무사히 끝난 하루','좋은 책 한 권','늦잠','산책길 바람'];
+  const ks = ['노을 보며 걷기','오랜만의 통화','새 카페 발견','비 오는 창가','밤 산책','오랜 친구와 저녁'];
+  const photoEmojis = ['🌊','🌅','🍜','☕','🌸','📚','🎧','🏞️','🍺','🐈','🌙','🥾','🎂','🌿','🍷'];
+  const data = { days: {}, retros: {} };
+  for (let d = 1; d <= 28; d++) {
+    if (d % 5 === 0) continue;
+    const key = `2026-06-${String(d).padStart(2,'0')}`;
+    const mood = MOOD_COLORS[d % MOOD_COLORS.length].c;
+    const emoji = EMOJIS[d % EMOJIS.length];
+    const hasPhoto = d % 3 !== 2; // every 3rd day: emoji+mood only, no photo
+    data.days[key] = {
+      photos: hasPhoto ? [svgPhoto(tints[d % tints.length], photoEmojis[d % photoEmojis.length])] : [],
+      coverIdx: 0,
+      mood,
+      emoji,
+      grateful: gr[d % gr.length],
+      keyscene: ks[d % ks.length]
+    };
+  }
+  store.set(KEY, JSON.stringify(data));
+  return data;
+}
+
+// ---- helpers ----
+function getPhotos(rec) {
+  if (!rec) return [];
+  if (rec.photos && rec.photos.length) return rec.photos;
+  if (rec.photo) return [rec.photo];
+  return [];
+}
+function getCover(rec) {
+  const photos = getPhotos(rec);
+  if (!photos.length) return null;
+  return photos[rec.coverIdx || 0] || photos[0];
+}
+
+// ---- navigation ----
+const titles = { today: '오늘', monthly: '먼슬리', retro: '월말 회고' };
+function switchTab(tab) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('s-' + tab).classList.add('active');
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('on'));
+  document.getElementById('nav-' + tab).classList.add('on');
+  document.getElementById('hTitle').textContent = titles[tab];
+  if (tab === 'today') renderToday();
+  if (tab === 'monthly') renderMonthly();
+  if (tab === 'retro') renderRetro();
+}
+
+// ---- TODAY ----
+let draftPhoto = null;
+var draftMood = null;
+var draftEmoji = '';
+
+function renderToday() {
+  const d = db.days[todayStr] || {};
+  draftPhoto = getCover(d);
+  draftMood = d.mood || null;
+  draftEmoji = d.emoji || '';
+  const slot = document.getElementById('todayPhoto');
+  if (draftPhoto) { slot.innerHTML = `<img src="${draftPhoto}">`; slot.classList.add('filled'); }
+  else { slot.innerHTML = `<span style="font-size:26px">📷</span><span class="hint">오늘의 사진 한 장</span>`; slot.classList.remove('filled'); }
+  document.getElementById('fGrateful').value = d.grateful || '';
+  document.getElementById('fKeyscene').value = d.keyscene || '';
+  document.getElementById('hSub').textContent = '2026년 7월 2일 수요일';
+  renderTodayPickers();
+}
+function renderTodayPickers() {
+  document.getElementById('todayMoodRow').innerHTML = MOOD_COLORS.map(({c, name}) =>
+    `<div class="mood-dot ${draftMood === c ? 'active' : ''}" style="background:${c}" onclick="selectTodayMood('${c}')" title="${name}"></div>`).join('');
+  document.getElementById('todayEmojiGrid').innerHTML = EMOJIS.map(e =>
+    `<button class="emoji-pick ${draftEmoji === e ? 'active' : ''}" onclick="selectTodayEmoji('${e}')">${e}</button>`).join('');
+}
+function selectTodayMood(c) {
+  draftMood = draftMood === c ? null : c;
+  renderTodayPickers();
+}
+function selectTodayEmoji(e) {
+  draftEmoji = draftEmoji === e ? '' : e;
+  renderTodayPickers();
+}
+function pickPhoto() {
+  document.getElementById('fileIn').onchange = onPhoto;
+  document.getElementById('fileIn').click();
+}
+function onPhoto(e) {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    draftPhoto = r.result;
+    const slot = document.getElementById('todayPhoto');
+    slot.innerHTML = `<img src="${draftPhoto}">`; slot.classList.add('filled');
+  };
+  r.readAsDataURL(f);
+  e.target.value = '';
+}
+function saveToday() {
+  const existing = db.days[todayStr] || {};
+  const photos = getPhotos(existing);
+  if (draftPhoto && !photos.includes(draftPhoto)) photos.unshift(draftPhoto);
+  db.days[todayStr] = {
+    ...existing,
+    photos,
+    coverIdx: existing.coverIdx || 0,
+    photo: null,
+    mood: draftMood,
+    emoji: draftEmoji,
+    grateful: document.getElementById('fGrateful').value.trim(),
+    keyscene: document.getElementById('fKeyscene').value.trim()
+  };
+  save();
+  renderMonthly();
+  toast('오늘 기록을 저장했어요 ✍️');
+}
+
+// ---- MONTHLY ----
+function shiftMonth(n) { viewMonth.setMonth(viewMonth.getMonth() + n); renderMonthly(); }
+function renderMonthly() {
+  const y = viewMonth.getFullYear(), m = viewMonth.getMonth();
+  document.getElementById('mTitle').textContent = `${y}년 ${m + 1}월`;
+  const first = new Date(y, m, 1).getDay();
+  const days = new Date(y, m + 1, 0).getDate();
+  const grid = document.getElementById('mGrid');
+  grid.innerHTML = '';
+  let count = 0, photoCount = 0;
+  const now = new Date(2026, 6, 2);
+  for (let i = 0; i < first; i++) grid.insertAdjacentHTML('beforeend', '<div></div>');
+  for (let d = 1; d <= days; d++) {
+    const key = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const rec = db.days[key];
+    const isFuture = new Date(y, m, d) > now;
+    const cover = getCover(rec);
+    const cell = document.createElement('div');
+    const hasPhoto = !!cover;
+    cell.className = 'cell' + (rec ? (hasPhoto ? ' has-photo' : ' has-mood') : ' empty-rec') + (isFuture ? ' future' : '');
+    if (rec && rec.mood) cell.style.background = rec.mood;
+    if (cover) {
+      cell.innerHTML = `<span class="num">${d}</span><img src="${cover}">`;
+    } else {
+      cell.innerHTML = `<span class="num">${d}</span>` + (rec && rec.emoji ? `<span class="cell-emoji">${rec.emoji}</span>` : '');
+    }
+    cell.onclick = () => openDay(key);
+    grid.appendChild(cell);
+    if (rec) { count++; if (hasPhoto) photoCount++; }
+  }
+  const total = days, passed = (y === 2026 && m === 6) ? 2 : (new Date(y,m,1) < now ? days : 0);
+  document.getElementById('mCount').textContent = count;
+  document.getElementById('mPhotos').textContent = photoCount;
+  document.getElementById('mLeft').textContent = Math.max(0, total - passed);
+}
+
+// ---- MODAL ----
+const DOW = ['일','월','화','수','목','금','토'];
+let modalDate = null;
+const dayKey = dt => `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+var modalEditing = false;
+var photoEditing = false;
+var viewingIdx = 0;
+
+function openDay(key) {
+  modalDate = new Date(key + 'T00:00:00');
+  modalEditing = false; photoEditing = false; viewingIdx = 0;
+  renderModal();
+  document.getElementById('modalBg').classList.add('show');
+}
+function stepDay(n) {
+  if (n > 0 && dayKey(modalDate) >= todayStr) return;
+  modalDate.setDate(modalDate.getDate() + n);
+  modalEditing = false; photoEditing = false; viewingIdx = 0;
+  renderModal();
+}
+function closeModal() { document.getElementById('modalBg').classList.remove('show'); }
+
+function renderPhotoSection(rec) {
+  const photos = getPhotos(rec);
+  const coverIdx = (rec && rec.coverIdx) || 0;
+  if (photoEditing) {
+    return `<div class="photo-edit-grid">
+      ${photos.map((p, i) => `
+        <div class="photo-edit-item">
+          <img src="${p}">
+          <button class="pe-del" onclick="deletePhoto(${i})">✕</button>
+          <button class="pe-cover ${i === coverIdx ? 'active' : ''}" onclick="setCover(${i})">${i === coverIdx ? '⭐ 대표' : '대표로'}</button>
+        </div>`).join('')}
+      <div class="photo-add-cell" onclick="pickDayPhoto()">+</div>
+    </div>
+    <button class="btn" style="margin-bottom:14px;background:#f1ede4;color:var(--muted)" onclick="photoEditing=false;renderModal()">완료</button>`;
+  }
+  if (!photos.length) {
+    return `<div class="no-photo-slot" onclick="photoEditing=true;renderModal()">
+      <span style="font-size:26px">📷</span><span>사진 추가</span></div>`;
+  }
+  const idx = Math.min(viewingIdx, photos.length - 1);
+  return `<div class="photo-cover-wrap">
+    <img src="${photos[idx]}">
+    <button class="photo-edit-fab" onclick="photoEditing=true;renderModal()">📷 편집</button>
+  </div>
+  ${photos.length > 1 ? `<div class="thumb-strip">
+    ${photos.map((p, i) => `
+      <div class="thumb-item ${i === coverIdx ? 'is-cover' : ''}" onclick="viewingIdx=${i};renderModal()">
+        <img src="${p}">
+        ${i === coverIdx ? '<div class="thumb-badge">대표</div>' : ''}
+      </div>`).join('')}
+  </div>` : ''}`;
+}
+
+function renderMoodEmojiPickers(rec) {
+  const mood = rec?.mood || null;
+  const emoji = rec?.emoji || '';
+  return `
+    <div class="card" style="margin-bottom:12px">
+      <label class="field-label">🎨 기분 색상</label>
+      <div class="mood-row">
+        ${MOOD_COLORS.map(({c, name}) =>
+          `<div class="mood-dot ${mood === c ? 'active' : ''}" style="background:${c}" onclick="setMood('${c}')" title="${name}"></div>`).join('')}
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:14px">
+      <label class="field-label">✨ 오늘의 이모지</label>
+      <div class="emoji-grid">
+        ${EMOJIS.map(e =>
+          `<button class="emoji-pick ${emoji === e ? 'active' : ''}" onclick="setDayEmoji('${e}')">${e}</button>`).join('')}
+      </div>
+    </div>`;
+}
+
+function renderModal() {
+  const key = dayKey(modalDate);
+  const rec = db.days[key];
+  const mo = modalDate.getMonth() + 1, d = modalDate.getDate();
+  const atToday = key >= todayStr;
+  const body = document.getElementById('modalBody');
+
+  const head = `<div class="grab"></div>
+    <div class="modal-head">
+      <button class="mnav" onclick="stepDay(-1)" aria-label="이전 날">‹</button>
+      <div style="text-align:center">
+        <h3>${mo}월 ${d}일</h3>
+        <div class="day-sub">${modalDate.getFullYear()} · ${DOW[modalDate.getDay()]}요일</div>
+      </div>
+      <button class="mnav" onclick="stepDay(1)" ${atToday ? 'disabled' : ''} aria-label="다음 날">›</button>
+    </div>`;
+
+  const moodIndicator = (rec?.mood || rec?.emoji) ? `
+    <div class="mood-indicator">
+      ${rec.mood ? `<div class="mood-pip" style="background:${rec.mood}"></div>` : ''}
+      ${rec.emoji ? `<span style="font-size:20px">${rec.emoji}</span>` : ''}
+    </div>` : '';
+
+  if (modalEditing) {
+    body.innerHTML = head + renderPhotoSection(rec) + renderMoodEmojiPickers(rec) + `
+      <div class="card" style="margin-bottom:12px">
+        <label class="field-label">💛 감사한 일</label>
+        <textarea id="meGrateful" rows="3">${rec ? (rec.grateful || '') : ''}</textarea>
+      </div>
+      <div class="card" style="margin-bottom:14px">
+        <label class="field-label">⭐ 키씬</label>
+        <textarea id="meKeyscene" rows="3">${rec ? (rec.keyscene || '') : ''}</textarea>
+      </div>
+      <button class="btn accent" onclick="saveModalEdit()">저장</button>
+      <button class="btn" style="margin-top:10px;background:#f1ede4;color:var(--muted)" onclick="modalEditing=false;renderModal()">취소</button>`;
+  } else {
+    body.innerHTML = head + renderPhotoSection(rec) + moodIndicator + (rec ? `
+      <div class="card" style="margin-bottom:12px"><label class="field-label">💛 감사한 일</label><div style="white-space:pre-wrap">${rec.grateful || '<span style="color:#bbb">기록 없음</span>'}</div></div>
+      <div class="card" style="margin-bottom:14px"><label class="field-label">⭐ 키씬</label><div style="white-space:pre-wrap">${rec.keyscene || '<span style="color:#bbb">기록 없음</span>'}</div></div>
+      <button class="edit-btn" onclick="modalEditing=true;renderModal()">✏️ 편집</button>
+    ` : `
+      <p class="empty-msg">이 날은 아직 기록이 없어요.</p>
+      <button class="edit-btn" style="display:block;margin:0 auto" onclick="modalEditing=true;renderModal()">✏️ 기록 추가</button>
+    `);
+  }
+}
+
+function saveModalEdit() {
+  const key = dayKey(modalDate);
+  if (!db.days[key]) db.days[key] = { photos: [], coverIdx: 0, mood: null, emoji: '' };
+  db.days[key].grateful = document.getElementById('meGrateful').value.trim();
+  db.days[key].keyscene = document.getElementById('meKeyscene').value.trim();
+  save(); modalEditing = false; renderModal(); renderMonthly();
+  toast('수정했어요 ✍️');
+}
+
+function setMood(color) {
+  const key = dayKey(modalDate);
+  if (!db.days[key]) db.days[key] = { photos: [], coverIdx: 0, grateful: '', keyscene: '', emoji: '' };
+  db.days[key].mood = db.days[key].mood === color ? null : color;
+  save(); renderModal(); renderMonthly();
+}
+function setDayEmoji(e) {
+  const key = dayKey(modalDate);
+  if (!db.days[key]) db.days[key] = { photos: [], coverIdx: 0, grateful: '', keyscene: '', mood: null };
+  db.days[key].emoji = db.days[key].emoji === e ? '' : e;
+  save(); renderModal(); renderMonthly();
+}
+
+function deletePhoto(idx) {
+  const key = dayKey(modalDate);
+  const photos = getPhotos(db.days[key]);
+  photos.splice(idx, 1);
+  db.days[key].photos = photos; db.days[key].photo = null;
+  if ((db.days[key].coverIdx || 0) >= photos.length) db.days[key].coverIdx = 0;
+  viewingIdx = 0;
+  if (!photos.length) photoEditing = false;
+  save(); renderModal(); renderMonthly();
+  toast('사진을 삭제했어요');
+}
+function setCover(idx) {
+  const key = dayKey(modalDate);
+  db.days[key].coverIdx = idx; viewingIdx = idx;
+  save(); renderModal(); renderMonthly();
+  toast('대표 사진을 바꿨어요 ⭐');
+}
+function pickDayPhoto() {
+  const inp = document.getElementById('fileIn');
+  inp.onchange = onDayPhoto; inp.click();
+}
+function onDayPhoto(e) {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    const key = dayKey(modalDate);
+    if (!db.days[key]) db.days[key] = { photos: [], coverIdx: 0, grateful: '', keyscene: '', mood: null, emoji: '' };
+    const photos = getPhotos(db.days[key]);
+    photos.push(r.result); db.days[key].photos = photos; db.days[key].photo = null;
+    viewingIdx = photos.length - 1;
+    save(); renderModal(); renderMonthly();
+    toast('사진을 추가했어요 📷');
+  };
+  r.readAsDataURL(f); e.target.value = '';
+}
+
+// swipe left/right
+(() => {
+  const el = document.getElementById('modalBody');
+  let x0 = null;
+  el.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; }, { passive: true });
+  el.addEventListener('touchend', e => {
+    if (x0 === null) return;
+    const dx = e.changedTouches[0].clientX - x0;
+    if (Math.abs(dx) > 45) stepDay(dx < 0 ? 1 : -1);
+    x0 = null;
+  }, { passive: true });
+})();
+
+// ---- RETRO ----
+function goRetro() { switchTab('retro'); }
+function retroKey() { return `${viewMonth.getFullYear()}-${String(viewMonth.getMonth()+1).padStart(2,'0')}`; }
+function renderRetro() {
+  const y = viewMonth.getFullYear(), m = viewMonth.getMonth();
+  document.getElementById('hSub').textContent = `${y}년 ${m + 1}월 돌아보기`;
+  const wrap = document.getElementById('retroPhotos');
+  wrap.innerHTML = '';
+  const keys = Object.keys(db.days).filter(k => k.startsWith(`${y}-${String(m+1).padStart(2,'0')}`) && getPhotos(db.days[k]).length);
+  keys.slice(0, 6).forEach(k => {
+    const c = document.createElement('div');
+    c.className = 'cell has-photo';
+    c.innerHTML = `<img src="${getCover(db.days[k])}">`;
+    wrap.appendChild(c);
+  });
+  if (!keys.length) wrap.innerHTML = '<p class="empty-msg" style="grid-column:1/-1">이 달 사진이 아직 없어요.</p>';
+  const r = db.retros[retroKey()] || {};
+  document.querySelectorAll('[data-r]').forEach(t => t.value = r[t.dataset.r] || '');
+}
+function saveRetro() {
+  const r = {};
+  document.querySelectorAll('[data-r]').forEach(t => r[t.dataset.r] = t.value.trim());
+  db.retros[retroKey()] = r;
+  save();
+  toast('이 달의 회고를 저장했어요 ✨');
+}
+
+// ---- toast ----
+let toastT;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('show'), 1800);
+}
+
+switchTab('monthly');
+</script>
+</body>
+</html>
