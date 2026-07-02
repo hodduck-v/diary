@@ -45,7 +45,7 @@
 
   .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); margin-bottom: 14px; }
   label.field-label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); margin: 0 0 8px; }
-  textarea, input[type=text] {
+  textarea, input[type=text], input[type=email], input[type=password] {
     width: 100%; border: 1px solid var(--line); border-radius: 12px; padding: 11px 12px;
     font-family: inherit; font-size: 15px; color: var(--ink); background: #fbfaf7; resize: none;
   }
@@ -69,6 +69,7 @@
   .btn.accent { background: var(--accent); }
   .btn.soft { background: var(--accent-soft); color: var(--accent); }
   .btn:active { transform: scale(.98); }
+  .btn:disabled { opacity: .5; cursor: default; transform: none; }
 
   /* mood & emoji pickers */
   .mood-row { display: flex; gap: 9px; flex-wrap: wrap; }
@@ -155,10 +156,8 @@
   .mnav:active { transform: scale(.92); }
   .mnav:disabled { opacity: .3; cursor: default; }
   .edit-btn { background: none; border: 1px solid var(--line); border-radius: 20px; padding: 5px 13px; font-size: 13px; color: var(--muted); cursor: pointer; font-family: inherit; margin-top: 6px; }
-  /* mood indicator (read mode) */
   .mood-indicator { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
   .mood-pip { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid rgba(0,0,0,.1); }
-  /* photo multi */
   .photo-cover-wrap { position: relative; margin-bottom: 10px; }
   .photo-cover-wrap img { width: 100%; border-radius: 14px; display: block; }
   .photo-edit-fab { position: absolute; bottom: 10px; right: 10px; background: rgba(0,0,0,.48); border: none; color: #fff; border-radius: 20px; padding: 6px 13px; font-size: 13px; cursor: pointer; font-family: inherit; }
@@ -182,15 +181,81 @@
     opacity: 0; transition: .3s; pointer-events: none; z-index: 60;
   }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* logout btn */
+  #logoutBtn {
+    background: none; border: 1px solid var(--line); border-radius: 20px;
+    padding: 5px 12px; font-size: 12px; color: var(--muted); cursor: pointer; font-family: inherit;
+  }
+
+  /* auth screen */
+  #authScreen {
+    position: fixed; inset: 0; z-index: 200;
+    background: var(--bg); display: flex; align-items: center; justify-content: center; padding: 28px 24px;
+  }
+  #authScreen.hidden { display: none; }
+  .auth-wrap { width: 100%; max-width: 360px; }
+  .auth-logo { font-size: 36px; margin-bottom: 12px; }
+  .auth-wrap h2 { font-size: 22px; margin: 0 0 4px; font-weight: 700; }
+  .auth-wrap .auth-desc { color: var(--muted); font-size: 14px; margin-bottom: 32px; }
+  .auth-field { margin-bottom: 12px; }
+  .auth-field label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px; }
+  .auth-error { color: var(--accent); font-size: 13px; min-height: 18px; margin-bottom: 10px; }
+  .auth-toggle { text-align: center; font-size: 13px; color: var(--muted); margin-top: 18px; }
+  .auth-toggle button { background: none; border: none; color: var(--accent); font-family: inherit; font-size: 13px; cursor: pointer; font-weight: 600; }
+
+  /* loading */
+  #loadingScreen {
+    position: fixed; inset: 0; z-index: 150;
+    background: var(--bg); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 14px;
+  }
+  #loadingScreen.hidden { display: none; }
+  .spinner {
+    width: 32px; height: 32px; border: 3px solid var(--line); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
+
+<!-- Loading -->
+<div id="loadingScreen">
+  <div class="spinner"></div>
+  <div style="font-size:13px;color:var(--muted)">불러오는 중...</div>
+</div>
+
+<!-- Auth -->
+<div id="authScreen" class="hidden">
+  <div class="auth-wrap">
+    <div class="auth-logo">📖</div>
+    <h2>인생 회고 다이어리</h2>
+    <p class="auth-desc">하루하루를 기록하고, 한 달을 돌아보세요</p>
+    <div class="auth-field">
+      <label>이메일</label>
+      <input type="email" id="authEmail" placeholder="hello@example.com" />
+    </div>
+    <div class="auth-field">
+      <label>비밀번호</label>
+      <input type="password" id="authPassword" placeholder="6자 이상" />
+    </div>
+    <div class="auth-error" id="authError"></div>
+    <button class="btn accent" id="authBtn" onclick="submitAuth()">로그인</button>
+    <div class="auth-toggle">
+      <span id="authToggleText">계정이 없으신가요?</span>
+      <button onclick="toggleAuthMode()">회원가입</button>
+    </div>
+  </div>
+</div>
+
+<!-- App -->
 <div id="app">
   <header>
     <div>
       <h1 id="hTitle">오늘</h1>
       <div class="sub" id="hSub"></div>
     </div>
+    <button id="logoutBtn" onclick="logout()">로그아웃</button>
   </header>
 
   <main>
@@ -269,15 +334,166 @@
 </div>
 <div class="toast" id="toast"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
-const KEY = 'life-retro-v1';
+// ---- Supabase ----
+const SUPABASE_URL = 'https://skffkvigvcadqcegkfdp.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_Bx6EFhyL1xBIL9JYkQWdEg_Ld3pkraa';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const store = {
-  get(k) { try { return localStorage.getItem(k); } catch(e) { return this._mem?.[k] ?? null; } },
-  set(k, v) { try { localStorage.setItem(k, v); } catch(e) { (this._mem ||= {})[k] = v; } },
-  _mem: null
-};
+let currentUser = null;
 
+// ---- Date helpers (dynamic) ----
+const _now = new Date();
+const todayStr = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,'0')}-${String(_now.getDate()).padStart(2,'0')}`;
+let viewMonth = new Date(_now.getFullYear(), _now.getMonth(), 1);
+
+const DOW_KO = ['일','월','화','수','목','금','토'];
+const DOW_LABELS = ['일','월','화','수','목','금','토'];
+
+const todayLabel = (() => {
+  const days = ['일','월','화','수','목','금','토'];
+  return `${_now.getFullYear()}년 ${_now.getMonth()+1}월 ${_now.getDate()}일 ${days[_now.getDay()]}요일`;
+})();
+
+// ---- Local cache (per user) ----
+function localKey() { return `life-retro-v2-${currentUser?.id || 'anon'}`; }
+
+let db = { days: {}, retros: {} };
+
+function loadLocal() {
+  try {
+    const raw = localStorage.getItem(localKey());
+    if (raw) { db = JSON.parse(raw); return true; }
+  } catch(e) {}
+  return false;
+}
+function saveLocal() {
+  try { localStorage.setItem(localKey(), JSON.stringify(db)); } catch(e) {}
+}
+
+// ---- Supabase data sync ----
+async function loadFromSupabase() {
+  const { data, error } = await sb.from('diary_data')
+    .select('days, retros')
+    .eq('user_id', currentUser.id)
+    .maybeSingle();
+  if (data) {
+    db = { days: data.days || {}, retros: data.retros || {} };
+    saveLocal();
+  }
+}
+
+async function saveToSupabase() {
+  const { data: existing } = await sb.from('diary_data')
+    .select('id').eq('user_id', currentUser.id).maybeSingle();
+  if (existing) {
+    await sb.from('diary_data')
+      .update({ days: db.days, retros: db.retros, updated_at: new Date().toISOString() })
+      .eq('user_id', currentUser.id);
+  } else {
+    await sb.from('diary_data')
+      .insert({ user_id: currentUser.id, days: db.days, retros: db.retros });
+  }
+}
+
+function save() {
+  saveLocal();
+  saveToSupabase().catch(() => {});
+}
+
+// ---- Auth ----
+let authMode = 'login';
+
+function showLoading(show) {
+  document.getElementById('loadingScreen').classList.toggle('hidden', !show);
+}
+function showAuth(show) {
+  document.getElementById('authScreen').classList.toggle('hidden', !show);
+}
+function showApp(show) {
+  document.getElementById('app').style.visibility = show ? '' : 'hidden';
+}
+
+function toggleAuthMode() {
+  authMode = authMode === 'login' ? 'signup' : 'login';
+  const isLogin = authMode === 'login';
+  document.getElementById('authBtn').textContent = isLogin ? '로그인' : '회원가입';
+  document.getElementById('authToggleText').textContent = isLogin ? '계정이 없으신가요?' : '이미 계정이 있으신가요?';
+  document.querySelector('.auth-toggle button').textContent = isLogin ? '회원가입' : '로그인';
+  document.getElementById('authError').textContent = '';
+}
+
+async function submitAuth() {
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value;
+  const errEl = document.getElementById('authError');
+  const btn = document.getElementById('authBtn');
+  if (!email || !password) { errEl.textContent = '이메일과 비밀번호를 입력해주세요.'; return; }
+  btn.disabled = true;
+  errEl.textContent = '';
+  try {
+    let result;
+    if (authMode === 'login') {
+      result = await sb.auth.signInWithPassword({ email, password });
+    } else {
+      result = await sb.auth.signUp({ email, password });
+    }
+    if (result.error) {
+      errEl.textContent = translateAuthError(result.error.message);
+    }
+    // onAuthStateChange handles the rest
+  } catch(e) {
+    errEl.textContent = '오류가 발생했어요. 다시 시도해주세요.';
+  }
+  btn.disabled = false;
+}
+
+function translateAuthError(msg) {
+  if (msg.includes('Invalid login credentials')) return '이메일 또는 비밀번호가 올바르지 않아요.';
+  if (msg.includes('Email not confirmed')) return '이메일 인증이 필요해요. 메일함을 확인해주세요.';
+  if (msg.includes('already registered')) return '이미 가입된 이메일이에요.';
+  if (msg.includes('Password should be')) return '비밀번호는 6자 이상이어야 해요.';
+  return msg;
+}
+
+async function logout() {
+  await sb.auth.signOut();
+  db = { days: {}, retros: {} };
+  currentUser = null;
+  showApp(false);
+  showAuth(true);
+}
+
+// ---- App init ----
+async function onLogin(user) {
+  currentUser = user;
+  showLoading(true);
+  showAuth(false);
+  loadLocal(); // show cached data immediately
+  showApp(true);
+  switchTab('monthly');
+  await loadFromSupabase(); // then fetch fresh data
+  switchTab('monthly');     // re-render with server data
+  showLoading(false);
+}
+
+sb.auth.onAuthStateChange(async (event, session) => {
+  if (session?.user) {
+    await onLogin(session.user);
+  } else {
+    showLoading(false);
+    showApp(false);
+    showAuth(true);
+  }
+});
+
+// Enter key on auth fields
+document.getElementById('authPassword').addEventListener('keydown', e => {
+  if (e.key === 'Enter') submitAuth();
+});
+
+// ---- Constants ----
 const MOOD_COLORS = [
   { c: '#ffd54f', name: '행복' },
   { c: '#ffcc80', name: '따뜻함' },
@@ -296,45 +512,6 @@ const EMOJIS = [
   '😊','😢','😤','😌','🤔','💪','🙏','😴',
   '☕','🍕','🍺','📚','✈️','🏃','❤️','🐈',
 ];
-
-let db = load();
-let viewMonth = new Date(2026, 5, 1);
-const todayStr = '2026-07-02';
-
-function load() {
-  const raw = store.get(KEY);
-  if (raw) { try { return JSON.parse(raw); } catch(e) {} }
-  return seed();
-}
-function save() { store.set(KEY, JSON.stringify(db)); }
-
-function seed() {
-  const tints = ['#f0997b','#ef9f27','#85b7eb','#97c459','#ed93b1','#faece7'];
-  const svgPhoto = (c, label) =>
-    'data:image/svg+xml;utf8,' + encodeURIComponent(
-      `<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><rect width='120' height='120' fill='${c}'/><text x='60' y='68' font-size='40' text-anchor='middle'>${label}</text></svg>`);
-  const gr = ['맑은 하늘','따뜻한 커피','친구의 연락','무사히 끝난 하루','좋은 책 한 권','늦잠','산책길 바람'];
-  const ks = ['노을 보며 걷기','오랜만의 통화','새 카페 발견','비 오는 창가','밤 산책','오랜 친구와 저녁'];
-  const photoEmojis = ['🌊','🌅','🍜','☕','🌸','📚','🎧','🏞️','🍺','🐈','🌙','🥾','🎂','🌿','🍷'];
-  const data = { days: {}, retros: {} };
-  for (let d = 1; d <= 28; d++) {
-    if (d % 5 === 0) continue;
-    const key = `2026-06-${String(d).padStart(2,'0')}`;
-    const mood = MOOD_COLORS[d % MOOD_COLORS.length].c;
-    const emoji = EMOJIS[d % EMOJIS.length];
-    const hasPhoto = d % 3 !== 2; // every 3rd day: emoji+mood only, no photo
-    data.days[key] = {
-      photos: hasPhoto ? [svgPhoto(tints[d % tints.length], photoEmojis[d % photoEmojis.length])] : [],
-      coverIdx: 0,
-      mood,
-      emoji,
-      grateful: gr[d % gr.length],
-      keyscene: ks[d % ks.length]
-    };
-  }
-  store.set(KEY, JSON.stringify(data));
-  return data;
-}
 
 // ---- helpers ----
 function getPhotos(rec) {
@@ -377,7 +554,7 @@ function renderToday() {
   else { slot.innerHTML = `<span style="font-size:26px">📷</span><span class="hint">오늘의 사진 한 장</span>`; slot.classList.remove('filled'); }
   document.getElementById('fGrateful').value = d.grateful || '';
   document.getElementById('fKeyscene').value = d.keyscene || '';
-  document.getElementById('hSub').textContent = '2026년 7월 2일 수요일';
+  document.getElementById('hSub').textContent = todayLabel;
   renderTodayPickers();
 }
 function renderTodayPickers() {
@@ -386,14 +563,8 @@ function renderTodayPickers() {
   document.getElementById('todayEmojiGrid').innerHTML = EMOJIS.map(e =>
     `<button class="emoji-pick ${draftEmoji === e ? 'active' : ''}" onclick="selectTodayEmoji('${e}')">${e}</button>`).join('');
 }
-function selectTodayMood(c) {
-  draftMood = draftMood === c ? null : c;
-  renderTodayPickers();
-}
-function selectTodayEmoji(e) {
-  draftEmoji = draftEmoji === e ? '' : e;
-  renderTodayPickers();
-}
+function selectTodayMood(c) { draftMood = draftMood === c ? null : c; renderTodayPickers(); }
+function selectTodayEmoji(e) { draftEmoji = draftEmoji === e ? '' : e; renderTodayPickers(); }
 function pickPhoto() {
   document.getElementById('fileIn').onchange = onPhoto;
   document.getElementById('fileIn').click();
@@ -406,25 +577,19 @@ function onPhoto(e) {
     const slot = document.getElementById('todayPhoto');
     slot.innerHTML = `<img src="${draftPhoto}">`; slot.classList.add('filled');
   };
-  r.readAsDataURL(f);
-  e.target.value = '';
+  r.readAsDataURL(f); e.target.value = '';
 }
 function saveToday() {
   const existing = db.days[todayStr] || {};
   const photos = getPhotos(existing);
   if (draftPhoto && !photos.includes(draftPhoto)) photos.unshift(draftPhoto);
   db.days[todayStr] = {
-    ...existing,
-    photos,
-    coverIdx: existing.coverIdx || 0,
-    photo: null,
-    mood: draftMood,
-    emoji: draftEmoji,
+    ...existing, photos, coverIdx: existing.coverIdx || 0, photo: null,
+    mood: draftMood, emoji: draftEmoji,
     grateful: document.getElementById('fGrateful').value.trim(),
     keyscene: document.getElementById('fKeyscene').value.trim()
   };
-  save();
-  renderMonthly();
+  save(); renderMonthly();
   toast('오늘 기록을 저장했어요 ✍️');
 }
 
@@ -438,7 +603,7 @@ function renderMonthly() {
   const grid = document.getElementById('mGrid');
   grid.innerHTML = '';
   let count = 0, photoCount = 0;
-  const now = new Date(2026, 6, 2);
+  const now = new Date(_now.getFullYear(), _now.getMonth(), _now.getDate());
   for (let i = 0; i < first; i++) grid.insertAdjacentHTML('beforeend', '<div></div>');
   for (let d = 1; d <= days; d++) {
     const key = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
@@ -458,14 +623,15 @@ function renderMonthly() {
     grid.appendChild(cell);
     if (rec) { count++; if (hasPhoto) photoCount++; }
   }
-  const total = days, passed = (y === 2026 && m === 6) ? 2 : (new Date(y,m,1) < now ? days : 0);
+  const passed = new Date(y, m, 1) <= now
+    ? (y === now.getFullYear() && m === now.getMonth() ? now.getDate() : days)
+    : 0;
   document.getElementById('mCount').textContent = count;
   document.getElementById('mPhotos').textContent = photoCount;
-  document.getElementById('mLeft').textContent = Math.max(0, total - passed);
+  document.getElementById('mLeft').textContent = Math.max(0, days - passed);
 }
 
 // ---- MODAL ----
-const DOW = ['일','월','화','수','목','금','토'];
 let modalDate = null;
 const dayKey = dt => `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
 var modalEditing = false;
@@ -551,7 +717,7 @@ function renderModal() {
       <button class="mnav" onclick="stepDay(-1)" aria-label="이전 날">‹</button>
       <div style="text-align:center">
         <h3>${mo}월 ${d}일</h3>
-        <div class="day-sub">${modalDate.getFullYear()} · ${DOW[modalDate.getDay()]}요일</div>
+        <div class="day-sub">${modalDate.getFullYear()} · ${DOW_KO[modalDate.getDay()]}요일</div>
       </div>
       <button class="mnav" onclick="stepDay(1)" ${atToday ? 'disabled' : ''} aria-label="다음 날">›</button>
     </div>`;
@@ -644,7 +810,7 @@ function onDayPhoto(e) {
   r.readAsDataURL(f); e.target.value = '';
 }
 
-// swipe left/right
+// swipe
 (() => {
   const el = document.getElementById('modalBody');
   let x0 = null;
@@ -691,8 +857,6 @@ function toast(msg) {
   el.textContent = msg; el.classList.add('show');
   clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('show'), 1800);
 }
-
-switchTab('monthly');
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(() => {});
