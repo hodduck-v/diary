@@ -424,10 +424,9 @@ async function loginWith(provider) {
   const errEl = document.getElementById('authError');
   errEl.textContent = '';
   document.getElementById('btn' + (provider === 'google' ? 'Google' : 'Kakao')).disabled = true;
-  const { error } = await sb.auth.signInWithOAuth({
-    provider,
-    options: { redirectTo: 'https://hodduck-v.github.io/diary/' }
-  });
+  const opts = { redirectTo: 'https://hodduck-v.github.io/diary/' };
+  if (provider === 'kakao') opts.scopes = 'profile_nickname profile_image';
+  const { error } = await sb.auth.signInWithOAuth({ provider, options: opts });
   if (error) {
     errEl.textContent = '로그인 중 오류가 발생했어요. 다시 시도해주세요.';
     document.getElementById('btnGoogle').disabled = false;
